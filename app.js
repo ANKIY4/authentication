@@ -3,7 +3,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRound = 10;
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
 
 const app = express();
@@ -31,15 +32,17 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  const newUser = new user({
-    email: req.body.username,
-    password: md5(req.body.password),
-  });
+  bcrypt.hash(req.body.password, saltRound, (err, hash) => {
+    const newUser = new user({
+      email: req.body.username,
+      password: hash,
+    });
 
-  newUser.save((err) => {
-    if (!err) {
-      res.redirect("/");
-    }
+    newUser.save((err) => {
+      if (!err) {
+        res.redirect("/");
+      }
+    });
   });
 });
 
@@ -49,9 +52,15 @@ app.post("/login", (req, res) => {
       console.log(err);
     } else {
       if (foundUser) {
-        if (foundUser.password === md5(req.body.password)) {
-          res.render("secrets");
-        }
+        bcrypt.compare(
+          req.body.password,
+          foundUser.password,
+          function (err, result) {
+            if (result === true) {
+              res.render("secrets");
+            }
+          }
+        );
       }
     }
   });
